@@ -3,8 +3,8 @@ library(data.table)
 library(parallel)
 
 # 设置输入输出目录
-input_dir <- "/share/home/lsy_chenyanchao/projects/hmmcopy/samples120k/hmmcopy_out/Baoan/hmmcopy_1/window_10000"
-output_dir <- "/share/home/lsy_chenyanchao/projects/hmmcopy/samples120k/hmmcopy_segs/Baoan/segs_1/window_10000"
+input_dir <- "your_input_dir"
+output_dir <- "your_output_dir"
 progress_dir <- file.path(output_dir, "progress")  # 将progress目录放在output_dir下
 
 # 创建输出目录
@@ -17,13 +17,13 @@ for(dir in dirs) {
 
 # 从输入目录获取所有待处理样本
 get_all_samples <- function() {
-    input_files <- list.files(input_dir, pattern="*_10000bp.correctedReadcount.rds$")
+    input_files <- list.files(input_dir, pattern="*_10000bp.correctedReadcount.rds$") # 输出的文件名需要根据实际情况修改
     return(gsub("_10000bp.correctedReadcount.rds$", "", input_files))
 }
 
 # 检查已处理的样本
 get_processed_samples <- function() {
-    processed_files <- list.files(output_dir, pattern="*_10000bp.segments.rds$")
+    processed_files <- list.files(output_dir, pattern="*_10000bp.segments.rds$") # 输出的文件名需要根据实际情况修改
     return(gsub("_10000bp.segments.rds$", "", processed_files))
 }
 
@@ -40,18 +40,18 @@ print(sprintf("Remaining samples to process: %d", length(remaining_samples)))
 process_sample <- function(sample_id) {
     tryCatch({
         # 检查是否已处理
-        output_file <- file.path(output_dir, paste0(sample_id, "_10000bp.segments.rds"))
+        output_file <- file.path(output_dir, paste0(sample_id, "_10000bp.segments.rds")) # 输出的文件名需要根据实际情况修改
         if (file.exists(output_file)) {
             return(list(status="already_processed", sample_id=sample_id))
         }
 
         # 创建进度文件
-        progress_file <- file.path(progress_dir, paste0(sample_id, ".running"))
+        progress_file <- file.path(progress_dir, paste0(sample_id, ".running")) # 进度文件后缀为.running
         file.create(progress_file)
 
         # 构建文件路径
         file_path <- file.path(input_dir,
-                              paste0(sample_id, "_10000bp.correctedReadcount.rds"))
+                              paste0(sample_id, "_10000bp.correctedReadcount.rds")) # 输入的文件名需要根据实际情况修改
 
         # 检查文件是否存在
         if (!file.exists(file_path)) {
@@ -65,7 +65,7 @@ process_sample <- function(sample_id) {
         # 初始化结果列表
         all_segs <- list()
 
-        # 处理每个染色体
+        # 处理每个染色体 （1-22,X）（Y染色体不纳入）
         for(chr in c(1:22, "X")) {
             chr_name <- paste0("chr", chr)
             chr_data <- corrected_reads[corrected_reads$chr == chr_name, ]

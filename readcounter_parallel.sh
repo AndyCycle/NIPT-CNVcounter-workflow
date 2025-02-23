@@ -1,13 +1,13 @@
 #!/bin/bash
-#SBATCH --job-name=ReadCounts_Parallel_Baoan_10kbp_1
-#SBATCH --output=%j_ReadCounts_Parallel_Baoan_10kbp_1.out
-#SBATCH --error=%j_ReadCounts_Parallel_Baoan_10kbp_1.err
+#SBATCH --job-name=ReadCounts_Parallel
+#SBATCH --output=%j_ReadCounts_Parallel.out
+#SBATCH --error=%j_ReadCounts_Parallel.err
 #SBATCH --partition=cpu
 #SBATCH --nodes=1
 #SBATCH --ntasks=5
 #SBATCH --time=80:00:00
 
-export PATH=/share/home/lsy_chenyanchao/software/miniconda3/bin:$PATH
+export PATH="your_conda_path/bin:$PATH"
 
 # 创建临时文件来跟踪处理状态
 TEMP_DIR=$(mktemp -d)
@@ -33,10 +33,10 @@ if ! command -v parallel &> /dev/null; then
 fi
 
 # 设置变量
-READ_COUNTER=/share/home/lsy_student/chenyanchao/GDM/CNV/HMMcopy/utils/hmmcopy_utils/bin/readCounter
-BAM_DIR="/share/home/lsy_weiyuandan/NIPT_BAM_copy/Baoan/Baoan_1"
-OUTPUT_DIR="/share/home/lsy_chenyanchao/projects/hmmcopy/samples120k/readcounts_wigs/Baoan/Baoan_wigs_1"
-WINDOW_SIZES=(10000)
+READ_COUNTER="your_Read_Counter_path" # hmmcopy_utils/bin/readCounter工具
+BAM_DIR="your_bam_dir"
+OUTPUT_DIR="your_output_dir"
+WINDOW_SIZES=(your_window_size)
 
 mkdir -p "${OUTPUT_DIR}"
 
@@ -77,7 +77,7 @@ process_readcounts() {
     while [ $retry -lt $RETRY_COUNT ]; do
         echo "[$(date '+%Y-%m-%d %H:%M:%S')] Processing ${SAMPLE_ID} with window size ${WINDOW} (attempt $((retry+1))/${RETRY_COUNT})"
 
-        ${READ_COUNTER} -w "${WINDOW}" -q 20 "${BAM_FILE}" | sed '/^fixedStep chrom=chrM/,$d' > "${READCOUNTER_OUTPUT}.tmp"
+        ${READ_COUNTER} -w "${WINDOW}" -q 20 "${BAM_FILE}" | sed '/^fixedStep chrom=chrM/,$d' > "${READCOUNTER_OUTPUT}.tmp"  # -q 20 表示将质量值低于20的读段过滤掉  # sed '/^fixedStep chrom=chrM/,$d' 表示删除chrM染色体后的内容
 
         if [ $? -eq 0 ] && [ -s "${READCOUNTER_OUTPUT}.tmp" ]; then
             mv "${READCOUNTER_OUTPUT}.tmp" "${READCOUNTER_OUTPUT}"
@@ -100,8 +100,8 @@ process_readcounts() {
 export -f process_readcounts
 export READ_COUNTER OUTPUT_DIR COMPLETED_TASKS FAILED_TASKS
 
-# 使用parallel执行任务，并设置超时
-parallel --timeout 3600 --jobs 5 process_readcounts {} ::: "${SAMPLE_BAMS[@]}" ::: "${WINDOW_SIZES[@]}"
+# 使用parallel执行任务，并设置超时 (自行修改timeout时间和并行jobs数量)
+parallel --timeout 3600 --jobs 5 process_readcounts {} ::: "${SAMPLE_BAMS[@]}" ::: "${WINDOW_SIZES[@]}"  # --timeout 3600 表示设置超时时间为3600秒  # --jobs 5 表示同时运行5个任务
 
 # 验证处理结果
 TOTAL_EXPECTED=$((TOTAL_SAMPLES * ${#WINDOW_SIZES[@]}))

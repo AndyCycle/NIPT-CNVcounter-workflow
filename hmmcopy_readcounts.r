@@ -13,15 +13,15 @@ window_sizes <- c(10000)
 window_folders <- c("window_10000")
 
 # 定义基础路径
-base_path <- "/share/home/lsy_student/chenyanchao/GDM/CNV/HMMcopy/preload"
+base_path <- "your_base_path"
 
 # 定义输出的基础路径
-output_base_path <- "/share/home/lsy_chenyanchao/projects/hmmcopy/samples120k/hmmcopy_out/Longgang/hmmcopy_1"
+output_base_path <- "your_output_base_path"
 
 # 定义各类文件的路径
-gc_path <- file.path(base_path, "gc")
-mappability_path <- file.path(base_path, "mappability")
-readcounts_path <- "/share/home/lsy_chenyanchao/projects/hmmcopy/samples120k/readcounts_wigs/Longgang/Longgang_wigs_1"
+gc_path <- file.path(base_path, "gc") #gc文件路径
+mappability_path <- file.path(base_path, "mappability") #mappability文件路径
+readcounts_path <- "your_readcounts_path" #readcounts.wig文件路径
 
 # 定义函数来获取样本文件
 get_sample_files <- function(window_folder) {
@@ -52,8 +52,8 @@ process_sample <- function(sample_file, window_size, window_folder) {
   }
 
   # 构建gc和mappability文件路径
-  gc_file <- file.path(gc_path, window_folder, paste0("Homo_sapiens_assembly38_", window_size, "bp.gc_filtered.wig"))
-  map_file <- file.path(mappability_path, window_folder, paste0("k100.Umap.MultiTrackMappability_", window_size, "bp.wig"))
+  gc_file <- file.path(gc_path, window_folder, paste0("Homo_sapiens_assembly38_", window_size, "bp.gc_filtered.wig")) # gc文件名需要根据实际情况修改
+  map_file <- file.path(mappability_path, window_folder, paste0("k100.Umap.MultiTrackMappability_", window_size, "bp.wig")) # mappability文件名需要根据实际情况修改
 
   # 输出构建的文件路径以便调试
   cat("Constructed GC file path:", gc_file, "\n")

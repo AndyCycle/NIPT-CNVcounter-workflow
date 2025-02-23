@@ -1,20 +1,31 @@
-
 library(data.table)
 library(dplyr)
 library(readr)
 library(parallel)
 library(GenomicRanges)
 
-# 定义输入和输出路径
-input_dir <- paste0("/share/home/lsy_chenyanchao/projects/hmmcopy/samples120k/hmmcopy_out/", "Baoan", "/hmmcopy_", "1", "/window_", "10000")
-output_dir <- paste0("/share/home/lsy_chenyanchao/projects/hmmcopy/samples120k/readcounts_table_new/", "Baoan", "/window_", "10000", "/readcounts_table_", "1")
+# 基础参数：输入文件根目录、医院名称、窗口大小和分段文件夹编号
+base_input_dir <- "your_base_input_dir"
+base_output_dir <- "your_base_output_dir"
+hospital_name <- "your_hospital_name"
+window_size <- as.numeric(your_window_size)
+hmmcopy_number <- as.numeric(your_hmmcopy_number)
+
+# 根据参数构建目录名称
+window_dir_name <- paste0("window_", window_size)
+hmmcopy_dir <- paste0("hmmcopy_", hmmcopy_number)
+readcounts_table_dir <- paste0("readcounts_table_", hmmcopy_number)
+
+# 构建完整的输入输出路径
+input_dir <- file.path(base_input_dir, hospital_name, hmmcopy_dir, window_dir_name)
+output_dir <- file.path(base_output_dir, hospital_name, window_dir_name, readcounts_table_dir)
 
 # 若输出目录不存在则创建
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
 # 定义输出文件路径（RDS格式）和进度跟踪文件
-output_samples_rds <- file.path(output_dir, "readcounts_table.rds")
-progress_file <- file.path(output_dir, "processed_samples.txt")
+output_samples_rds <- file.path(output_dir, "readcounts_table.rds") # 输出的文件名需要根据实际情况修改
+progress_file <- file.path(output_dir, "processed_samples.txt") # 样本处理进度跟踪文件
 
 # 函数：读取单个样本文件并提取所需列，同时排除Y染色体
 read_sample_data <- function(file_path) {

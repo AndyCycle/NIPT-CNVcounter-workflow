@@ -12,10 +12,10 @@ library(gtools)  # 用于染色体自然排序
 # 1. 设置基础参数 & 构建输入/输出目录
 
 # 基础参数：输入文件根目录、医院名称、窗口大小和分段文件夹编号
-base_input_dir <- "/share/home/lsy_chenyanchao/projects/hmmcopy/samples120k/hmmcopy_segs"
-hospital_name <- "Baoan"
-window_size <- as.numeric(10000)
-segs_number <- as.numeric(1)
+base_input_dir <- "your_input_dir"
+hospital_name <- "your_hospital_name"
+window_size <- as.numeric(your_window_size)
+segs_number <- as.numeric(your_segs_number)
 
 # 验证参数有效性
 if (is.na(window_size) || is.na(segs_number)) {

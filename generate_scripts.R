@@ -1,12 +1,12 @@
 #!/usr/bin/env Rscript
 
 # 设置工作目录（根据实际情况修改）
-setwd("/share/home/lsy_chenyanchao/projects/hmmcopy/samples120k")
+setwd("your_working_directory")
 
 # 定义参数：可以根据需要调整医院名称、窗口大小和分段数
-hospital_names <- c("Baoan", "Longgang")
-window_sizes <- c(10000, 20000)
-segs_count <- 12
+hospital_names <- c("your_hospital_name") # 医院名称
+window_sizes <- c(your_window_size) # 窗口大小
+segs_count <- 12 # 文件夹分段数
 
 # 模板脚本内容（新版本处理脚本，无 output_regions.csv，同时实时输出进度信息）
 template_script <- paste0(
@@ -24,7 +24,7 @@ library(gtools)  # 用于染色体自然排序
 # 1. 设置基础参数 & 构建输入/输出目录
 
 # 基础参数：输入文件根目录、医院名称、窗口大小和分段文件夹编号
-base_input_dir <- "/share/home/lsy_chenyanchao/projects/hmmcopy/samples120k/hmmcopy_segs"
+base_input_dir <- "your_base_input_dir"
 hospital_name <- {{hospital_name}}
 window_size <- as.numeric({{window_size}})
 segs_number <- as.numeric({{segs_number}})
@@ -47,7 +47,7 @@ segs_dir <- paste0("segs_", segs_number)
 input_dir <- file.path(base_input_dir, hospital_name, segs_dir, window_dir_name)
 
 # 输出目录：存放最终整合结果（cnv矩阵）的路径
-output_base_dir <- "/share/home/lsy_chenyanchao/projects/hmmcopy/samples120k/copy_table_new"
+output_base_dir <- "your_output_base_dir"
 output_dir <- file.path(output_base_dir, hospital_name, window_dir_name, segs_dir)
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -260,7 +260,7 @@ for (hospital in hospital_names) {
             script_content <- gsub('{{segs_number}}', seg, script_content, fixed = TRUE)
 
             # 构造脚本存放目录
-            script_dir <- file.path("sbatch_jobs/scr/segs_table_new", hospital,
+            script_dir <- file.path("sbatch_jobs/scr/segs_table_new", hospital, #脚本存放目录 （根据实际文件夹存放情况修改）
                                     paste0("window_", window),
                                     paste0("segs_", seg))
             dir.create(script_dir, recursive = TRUE, showWarnings = FALSE)
@@ -283,12 +283,12 @@ for (hospital in hospital_names) {
 
 echo "cnv_table process started at: $(date)"
 
-export PATH=/share/home/lsy_chenyanchao/software/miniconda3/bin:$PATH
+export PATH="your_conda_path/bin:$PATH"  #注意更改为实际conda路径
 
-source activate hmmcopy
+source activate hmmcopy  # 激活你的conda环境（根据实际情况修改）
 
 # 使用完整的绝对路径
-Rscript /share/home/lsy_chenyanchao/projects/hmmcopy/samples120k/sbatch_jobs/scr/segs_table_new/%s/window_%d/segs_%d/process_segs.R
+Rscript your_working_directory/sbatch_jobs/scr/segs_table_new/%s/window_%d/segs_%d/process_segs.R
 
 echo "Process completed at: $(date)"
 ', hospital, window, seg, hospital, window, seg, hospital, window, seg, hospital, window, seg)
@@ -305,11 +305,11 @@ echo "Process completed at: $(date)"
 # 创建一个批量提交所有作业的脚本（与之前类似）
 submit_all_content <- '#!/bin/bash
 
-BASE_DIR="/share/home/lsy_chenyanchao/projects/hmmcopy/samples120k"
+BASE_DIR="your_working_directory" # 工作目录
 
-for hospital in Baoan Longgang; do
-    for window in 10000 20000; do
-        for seg in $(seq 1 12); do
+for hospital in your_hospital_name; do  # 根据实际情况修改hospital_name——你的医院名称（可多个）
+    for window in your_window_size; do  # 根据实际情况修改window_size——你的窗口大小
+        for seg in $(seq 1 your_segs_count); do  # 根据实际情况修改segs_count——你的文件夹分段数
             script_path="${BASE_DIR}/sbatch_jobs/scr/segs_table_new/${hospital}/window_${window}/segs_${seg}/run_process.sh"
             if [ -f "$script_path" ] && [ -x "$script_path" ]; then
                 sbatch ${script_path}

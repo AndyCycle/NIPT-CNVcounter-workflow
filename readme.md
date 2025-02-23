@@ -58,52 +58,52 @@
 项目文件的存储方案如下，供参考和部署时调整：
 项目根目录/
 ├── readcounts_wigs/ # 原始的 .wig 文件存放目录
-│ ├── 医院1/
-│ │ ├── 子文件夹1/ # 分段文件夹（例如分段1）
-│ │ │ └── window_10000/ # 指定窗口大小文件夹
-│ │ │ ├── 样本文件1.readcounts.wig
-│ │ │ ├── 样本文件2.readcounts.wig
-│ │ │ └── ...
-│ │ └── 子文件夹2/ ...
-│ └── 医院2/ ...
+│   ├── 医院1/
+│   │   ├── 子文件夹1/ # 分段文件夹（例如分段1）
+│   │   │   └── window_10000/ # 指定窗口大小文件夹
+│   │   │       ├── 样本文件1.readcounts.wig
+│   │   │       ├── 样本文件2.readcounts.wig
+│   │   │       └── ...
+│   │   └── 子文件夹2/ ...
+│   └── 医院2/ ...
 ├── hmmcopy_out/ # 校正后的 readcounts 数据 (.rds) 存储路径
-│ ├── 医院1/
-│ │ ├── 子文件夹1/
-│ │ │ └── window_10000/
-│ │ │ └── .correctedReadcount.rds
-│ │ └── ...
-│ └── 医院2/ ...
+│   ├── 医院1/
+│   │   ├── 子文件夹1/
+│   │   │   └── window_10000/
+│   │   │       └── .correctedReadcount.rds
+│   │   └── ...
+│   └── 医院2/ ...
 ├── hmmcopy_segs/ # 基于校正数据生成的拷贝数文件 (.segments.rds)
-│ ├── 医院1/
-│ │ ├── 子文件夹1/
-│ │ │ └── window_10000/
-│ │ │ └── .segments.rds
-│ │ └── ...
-│ └── 医院2/ ...
+│   ├── 医院1/
+│   │   ├── 子文件夹1/
+│   │   │   └── window_10000/
+│   │   │       └── .segments.rds
+│   │   └── ...
+│   └── 医院2/ ...
 ├── readcounts_table/ # 整合各样本 readcounts 数据的矩阵 (.rds)
-│ ├── 医院1/
-│ │ ├── window_10000/ # 窗口大小文件夹
-│ │ │ ├── 子文件夹1/ # 例如，按照分段生成的子目录
-│ │ │ │ └── readcounts_table.rds
-│ │ │ └── window_其他尺寸/
-│ │ └── ...
-│ └── 医院2/ ...
+│   ├── 医院1/
+│   │   ├── window_10000/ # 窗口大小文件夹
+│   │   │   ├── 子文件夹1/ # 例如，按照分段生成的子目录
+│   │   │   │   └── readcounts_table.rds
+│   │   │   └── window_其他尺寸/
+│   │   └── ...
+│   └── 医院2/ ...
 ├── copy_table/ # 最终 CNV 矩阵 (.rds) 存储路径
-│ ├── 医院1/
-│ │ ├── window_10000/
-│ │ │ ├── 子文件夹1/
-│ │ │ │ └── cnv_table.rds
-│ │ │ └── ...
-│ │ └── ...
-│ └── 医院2/ ...
+│   ├── 医院1/
+│   │   ├── window_10000/
+│   │   │   ├── 子文件夹1/
+│   │   │   │   └── cnv_table.rds
+│   │   │   └── ...
+│   │   └── ...
+│   └── 医院2/ ...
 └── sbatch_jobs/ # 集群任务相关脚本目录
-└── github_scrs/
-├── readcounter_parallel.sh # 调用 readCounter 生成 .wig 文件的并行处理脚本
-├── hmmcopy_readcounts.r # 校正 readcounts 的 R 脚本
-├── hmmcopy_copy.r # 根据校正数据生成拷贝数数据的 R 脚本
-├── readcounts_table.r # 生成 readcounts 矩阵的 R 脚本
-├── copy_table.r # 生成最终 CNV 矩阵的 R 脚本
-└── generate_scripts.r # 自动生成任务提交脚本的 R 脚本
+    └── github_scrs/
+        ├── readcounter_parallel.sh # 调用 readCounter 生成 .wig 文件的并行处理脚本
+        ├── hmmcopy_readcounts.r # 校正 readcounts 的 R 脚本
+        ├── hmmcopy_copy.r # 根据校正数据生成拷贝数数据的 R 脚本
+        ├── readcounts_table.r # 生成 readcounts 矩阵的 R 脚本
+        ├── copy_table.r # 生成最终 CNV 矩阵的 R 脚本
+        └── generate_scripts.r # 自动生成任务提交脚本的 R 脚本
 
 
 ---

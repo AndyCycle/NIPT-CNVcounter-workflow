@@ -191,3 +191,68 @@
 如有疑问或建议，请联系项目维护人员或查阅相关文档。
 
 Happy CNV Analysis!
+
+```mermaid
+graph TD
+    Root[项目根目录] --> A[readcounts_wigs]
+    Root --> B[hmmcopy_out]
+    Root --> C[hmmcopy_segs]
+    Root --> D[readcounts_table]
+    Root --> E[copy_table]
+    Root --> F[sbatch_jobs]
+
+    %% readcounts_wigs 分支
+    A --> A1[医院1]
+    A --> A2[医院2]
+    A1 --> A1_1[子文件夹1]
+    A1_1 --> A1_1_1[window_10000]
+    A1_1_1 --> A1_1_1_1[样本1.readcounts.wig]
+    A1_1_1 --> A1_1_1_2[样本2.readcounts.wig]
+    A1_1_1 --> A1_1_1_3[...]
+
+    %% hmmcopy_out 分支
+    B --> B1[医院1]
+    B --> B2[医院2]
+    B1 --> B1_1[子文件夹1]
+    B1_1 --> B1_1_1[window_10000]
+    B1_1_1 --> B1_1_1_1[.correctedReadcount.rds]
+
+    %% hmmcopy_segs 分支
+    C --> C1[医院1]
+    C --> C2[医院2]
+    C1 --> C1_1[子文件夹1]
+    C1_1 --> C1_1_1[window_10000]
+    C1_1_1 --> C1_1_1_1[.segments.rds]
+
+    %% readcounts_table 分支
+    D --> D1[医院1]
+    D --> D2[医院2]
+    D1 --> D1_1[window_10000]
+    D1_1 --> D1_1_1[子文件夹1]
+    D1_1_1 --> D1_1_1_1[readcounts_table.rds]
+
+    %% copy_table 分支
+    E --> E1[医院1]
+    E --> E2[医院2]
+    E1 --> E1_1[window_10000]
+    E1_1 --> E1_1_1[子文件夹1]
+    E1_1_1 --> E1_1_1_1[cnv_table.rds]
+
+    %% sbatch_jobs 分支
+    F --> F1[github_scrs]
+    F1 --> F1_1[readcounter_parallel.sh]
+    F1 --> F1_2[hmmcopy_readcounts.r]
+    F1 --> F1_3[hmmcopy_copy.r]
+    F1 --> F1_4[readcounts_table.r]
+    F1 --> F1_5[copy_table.r]
+    F1 --> F1_6[generate_scripts.r]
+
+    %% 样式设置
+    classDef default fill:#f9f9f9,stroke:#333,stroke-width:2px;
+    classDef fileNode fill:#e3f2fd,stroke:#1565c0,stroke-width:2px;
+    classDef scriptNode fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
+
+    %% 应用样式
+    class A1_1_1_1,A1_1_1_2,B1_1_1_1,C1_1_1_1,D1_1_1_1,E1_1_1_1 fileNode;
+    class F1_1,F1_2,F1_3,F1_4,F1_5,F1_6 scriptNode;
+```

@@ -53,61 +53,6 @@
 
 ---
 
-## 文件目录结构示例
-
-项目文件的存储方案如下，供参考和部署时调整：
-项目根目录/
-├── readcounts_wigs/ # 原始的 .wig 文件存放目录
-│   ├── 医院1/
-│   │   ├── 子文件夹1/ # 分段文件夹（例如分段1）
-│   │   │   └── window_10000/ # 指定窗口大小文件夹
-│   │   │       ├── 样本文件1.readcounts.wig
-│   │   │       ├── 样本文件2.readcounts.wig
-│   │   │       └── ...
-│   │   └── 子文件夹2/ ...
-│   └── 医院2/ ...
-├── hmmcopy_out/ # 校正后的 readcounts 数据 (.rds) 存储路径
-│   ├── 医院1/
-│   │   ├── 子文件夹1/
-│   │   │   └── window_10000/
-│   │   │       └── .correctedReadcount.rds
-│   │   └── ...
-│   └── 医院2/ ...
-├── hmmcopy_segs/ # 基于校正数据生成的拷贝数文件 (.segments.rds)
-│   ├── 医院1/
-│   │   ├── 子文件夹1/
-│   │   │   └── window_10000/
-│   │   │       └── .segments.rds
-│   │   └── ...
-│   └── 医院2/ ...
-├── readcounts_table/ # 整合各样本 readcounts 数据的矩阵 (.rds)
-│   ├── 医院1/
-│   │   ├── window_10000/ # 窗口大小文件夹
-│   │   │   ├── 子文件夹1/ # 例如，按照分段生成的子目录
-│   │   │   │   └── readcounts_table.rds
-│   │   │   └── window_其他尺寸/
-│   │   └── ...
-│   └── 医院2/ ...
-├── copy_table/ # 最终 CNV 矩阵 (.rds) 存储路径
-│   ├── 医院1/
-│   │   ├── window_10000/
-│   │   │   ├── 子文件夹1/
-│   │   │   │   └── cnv_table.rds
-│   │   │   └── ...
-│   │   └── ...
-│   └── 医院2/ ...
-└── sbatch_jobs/ # 集群任务相关脚本目录
-    └── github_scrs/
-        ├── readcounter_parallel.sh # 调用 readCounter 生成 .wig 文件的并行处理脚本
-        ├── hmmcopy_readcounts.r # 校正 readcounts 的 R 脚本
-        ├── hmmcopy_copy.r # 根据校正数据生成拷贝数数据的 R 脚本
-        ├── readcounts_table.r # 生成 readcounts 矩阵的 R 脚本
-        ├── copy_table.r # 生成最终 CNV 矩阵的 R 脚本
-        └── generate_scripts.r # 自动生成任务提交脚本的 R 脚本
-
-
----
-
 ## 使用指南
 
 ### 1. 依赖环境
@@ -184,10 +129,71 @@
 
 ---
 
-## 总结
+---
 
-本项目构建了一个模块化、高效的 CNV 矫正和矩阵生成工作流。各脚本之间通过标准化的文件目录结构和参数设置紧密衔接，用户只需根据自身数据情况调整参数，即可在高性能计算集群上批量处理大量样本数据。
+## 文件目录结构示例
 
-如有疑问或建议，请联系项目维护人员或查阅相关文档。
+```mermaid
+graph TD
+    Root[项目根目录] --> A[readcounts_wigs]
+    Root --> B[hmmcopy_out]
+    Root --> C[hmmcopy_segs]
+    Root --> D[readcounts_table]
+    Root --> E[copy_table]
+    Root --> F[sbatch_jobs]
 
-Happy CNV Analysis!
+    %% readcounts_wigs 分支
+    A --> A1[医院1]
+    A --> A2[医院2]
+    A1 --> A1_1[子文件夹1]
+    A1_1 --> A1_1_1[window_10000]
+    A1_1_1 --> A1_1_1_1[样本1.readcounts.wig]
+    A1_1_1 --> A1_1_1_2[样本2.readcounts.wig]
+    A1_1_1 --> A1_1_1_3[...]
+
+    %% hmmcopy_out 分支
+    B --> B1[医院1]
+    B --> B2[医院2]
+    B1 --> B1_1[子文件夹1]
+    B1_1 --> B1_1_1[window_10000]
+    B1_1_1 --> B1_1_1_1[.correctedReadcount.rds]
+
+    %% hmmcopy_segs 分支
+    C --> C1[医院1]
+    C --> C2[医院2]
+    C1 --> C1_1[子文件夹1]
+    C1_1 --> C1_1_1[window_10000]
+    C1_1_1 --> C1_1_1_1[.segments.rds]
+
+    %% readcounts_table 分支
+    D --> D1[医院1]
+    D --> D2[医院2]
+    D1 --> D1_1[window_10000]
+    D1_1 --> D1_1_1[子文件夹1]
+    D1_1_1 --> D1_1_1_1[readcounts_table.rds]
+
+    %% copy_table 分支
+    E --> E1[医院1]
+    E --> E2[医院2]
+    E1 --> E1_1[window_10000]
+    E1_1 --> E1_1_1[子文件夹1]
+    E1_1_1 --> E1_1_1_1[cnv_table.rds]
+
+    %% sbatch_jobs 分支
+    F --> F1[github_scrs]
+    F1 --> F1_1[readcounter_parallel.sh]
+    F1 --> F1_2[hmmcopy_readcounts.r]
+    F1 --> F1_3[hmmcopy_copy.r]
+    F1 --> F1_4[readcounts_table.r]
+    F1 --> F1_5[copy_table.r]
+    F1 --> F1_6[generate_scripts.r]
+
+    %% 样式设置
+    classDef default fill:#f9f9f9,stroke:#333,stroke-width:2px;
+    classDef fileNode fill:#e3f2fd,stroke:#1565c0,stroke-width:2px;
+    classDef scriptNode fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
+
+    %% 应用样式
+    class A1_1_1_1,A1_1_1_2,B1_1_1_1,C1_1_1_1,D1_1_1_1,E1_1_1_1 fileNode;
+    class F1_1,F1_2,F1_3,F1_4,F1_5,F1_6 scriptNode;
+```

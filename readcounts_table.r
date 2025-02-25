@@ -34,8 +34,8 @@ hmmcopy_dir <- paste0("hmmcopy_", hmmcopy_number)
 readcounts_table_dir <- paste0("readcounts_table_", hmmcopy_number)
 
 # 构建完整的输入输出路径
-input_dir <- file.path(base_input_dir, hospital_name, hmmcopy_dir, window_dir_name)
-output_dir <- file.path(base_output_dir, hospital_name, window_dir_name, readcounts_table_dir)
+input_dir <- file.path(base_input_dir, hospital_name, hmmcopy_dir, window_dir_name)    #自行修改为符合实际情况的输入目录
+output_dir <- file.path(base_output_dir, hospital_name, window_dir_name, readcounts_table_dir)    #自行修改为符合实际情况的输出目录
 
 # 若输出目录不存在则创建
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)

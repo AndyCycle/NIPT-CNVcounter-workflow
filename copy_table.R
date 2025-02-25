@@ -36,11 +36,11 @@ window_dir_name <- paste0("window_", window_size)
 segs_dir <- paste0("segs_", segs_number)
 
 # 输入目录：存放所有 .segments.rds 文件的路径
-input_dir <- file.path(base_input_dir, hospital_name, segs_dir, window_dir_name)
+input_dir <- file.path(base_input_dir, hospital_name, segs_dir, window_dir_name)    #自行修改为符合实际情况的输入目录
 
 # 输出目录：存放最终整合结果（cnv矩阵）的路径
-output_base_dir <- "/share/home/lsy_chenyanchao/projects/hmmcopy/samples120k/copy_table_new"
-output_dir <- file.path(output_base_dir, hospital_name, window_dir_name, segs_dir)
+output_base_dir <- "your_output_base_dir"
+output_dir <- file.path(output_base_dir, hospital_name, window_dir_name, segs_dir)    #自行修改为符合实际情况的输出目录
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
 # 定义最终输出文件路径（只生成cnv矩阵的RDS文件）

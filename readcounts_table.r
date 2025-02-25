@@ -52,7 +52,7 @@ chr_sort <- function(chr_vec) {
   return(valid_idx[idx_order])
 }
 
-# 创建初始 RDS 文件函数，基于第一个样本数据构建基本表格
+# 修改创建初始 RDS 文件函数
 create_initial_rds <- function(first_sample_dt, output_file) {
   sort_idx <- chr_sort(first_sample_dt$chr)
   first_sample_dt <- first_sample_dt[sort_idx, ]
@@ -67,27 +67,126 @@ create_initial_rds <- function(first_sample_dt, output_file) {
     end = first_sample_dt$end
   )
 
-  new_col_name <- paste0(sample_id, "_readcounts_data")
-  dt_table[[new_col_name]] <- readcounts
+  # 直接使用样本ID作为列名
+  dt_table[[sample_id]] <- readcounts
 
   saveRDS(dt_table, output_file)
   return(n_windows)
 }
 
-# 更新 RDS 文件函数，增加新的样本数据（作为新列加入到已有数据表中）
+# 添加临时文件和锁文件机制
 update_rds_with_sample <- function(rds_file, sample_vector, sample_id) {
-  dt_table <- readRDS(rds_file)
+  # 定义临时文件和锁文件
+  temp_rds <- paste0(rds_file, ".temp")
+  lock_file <- paste0(rds_file, ".lock")
 
-  if (length(sample_vector) != nrow(dt_table)) {
-    message(sprintf("样本 %s 行数与窗口信息不匹配，跳过该样本。", sample_id))
+  tryCatch({
+    # 创建锁文件
+    write(Sys.time(), lock_file)
+
+    # 读取原始数据
+    dt_table <- readRDS(rds_file)
+
+    if (length(sample_vector) != nrow(dt_table)) {
+      message(sprintf("样本 %s 行数与窗口信息不匹配，跳过该样本。", sample_id))
+      return(FALSE)
+    }
+
+    # 更新数据
+    dt_table[[sample_id]] <- sample_vector
+
+    # 先写入临时文件
+    saveRDS(dt_table, temp_rds)
+
+    # 使用原子操作替换原文件
+    file.rename(temp_rds, rds_file)
+
+    # 清理内存
+    rm(dt_table)
+    gc()
+
+    return(TRUE)
+  }, error = function(e) {
+    message(sprintf("处理样本 %s 时发生错误: %s", sample_id, e$message))
     return(FALSE)
+  }, finally = {
+    # 清理临时文件和锁文件
+    if (file.exists(temp_rds)) file.remove(temp_rds)
+    if (file.exists(lock_file)) file.remove(lock_file)
+  })
+}
+
+# 检查和恢复函数
+check_and_recover <- function(rds_file) {
+  lock_file <- paste0(rds_file, ".lock")
+  temp_rds <- paste0(rds_file, ".temp")
+
+  # 检查是否存在锁文件，表明上次处理可能异常中断
+  if (file.exists(lock_file)) {
+    message("检测到上次处理可能异常中断，进行恢复...")
+
+    # 如果存在临时文件，检查其完整性
+    if (file.exists(temp_rds)) {
+      tryCatch({
+        # 尝试读取临时文件验证其完整性
+        temp_data <- readRDS(temp_rds)
+        # 如果成功读取，用临时文件替换原文件
+        file.rename(temp_rds, rds_file)
+        message("成功从临时文件恢复数据")
+      }, error = function(e) {
+        message("临时文件损坏，将使用原始文件继续处理")
+        if (file.exists(temp_rds)) file.remove(temp_rds)
+      })
+    }
+
+    file.remove(lock_file)
   }
+}
 
-  new_col_name <- paste0(sample_id, "_readcounts_data")
-  dt_table[[new_col_name]] <- sample_vector
+# 修改批处理函数
+process_samples_in_batches <- function(rds_files, batch_size = 10) {
+  total_files <- length(rds_files)
+  batches <- split(rds_files, ceiling(seq_along(rds_files)/batch_size))
 
-  saveRDS(dt_table, rds_file)
-  return(TRUE)
+  # 启动处理前检查和恢复
+  check_and_recover(output_samples_rds)
+
+  for (batch in batches) {
+    # 处理每个批次的样本
+    for (file in batch) {
+      sample_id <- sub("_[0-9]+bp\\.correctedReadcount\\.rds$", "", basename(file))
+
+      # 检查是否已处理
+      if (sample_id %in% processed_samples) {
+        message(sprintf("跳过已处理样本: %s", sample_id))
+        next
+      }
+
+      message(sprintf("开始处理样本: %s", sample_id))
+
+      sample_dt <- read_sample_data(file)
+      if (is.null(sample_dt)) {
+        message(sprintf("跳过处理失败的样本: %s", sample_id))
+        next
+      }
+
+      if (nrow(sample_dt) != n_windows) {
+        message(sprintf("样本 %s 行数与窗口信息不匹配，跳过该样本。", sample_id))
+        next
+      }
+
+      # 更新数据并记录进度
+      if (update_rds_with_sample(output_samples_rds, sample_dt$cor.map, sample_id)) {
+        write(sample_id, file = progress_file, append = TRUE)
+        processed_samples <- c(processed_samples, sample_id)
+        message(sprintf("已处理样本 %s (%d/%d)", sample_id, length(processed_samples), total_files))
+      }
+
+      rm(sample_dt)
+      gc()
+    }
+    gc()
+  }
 }
 
 # 列出所有符合条件的 RDS 文件
@@ -123,30 +222,12 @@ if (!file.exists(output_samples_rds)) {
 } else {
   dt_table <- readRDS(output_samples_rds)
   n_windows <- nrow(dt_table)
+  rm(dt_table) # 立即释放内存
+  gc()
 }
 
-# 对所有样本进行处理：根据进度文件，仅处理未处理的样本
-for (file in rds_files) {
-  sample_id <- sub("_[0-9]+bp\\.correctedReadcount\\.rds$", "", basename(file))
-  if (sample_id %in% processed_samples) {
-    message(sprintf("跳过已处理样本: %s", sample_id))
-    next
-  }
-  sample_dt <- read_sample_data(file)
-  if (is.null(sample_dt)) {
-    message(sprintf("跳过处理失败的样本: %s", sample_id))
-    next
-  }
-  if (nrow(sample_dt) != n_windows) {
-    message(sprintf("样本 %s 行数与窗口信息不匹配，跳过该样本。", sample_id))
-    next
-  }
-  if (update_rds_with_sample(output_samples_rds, sample_dt$cor.map, sample_id)) {
-    write(sample_id, file = progress_file, append = TRUE)
-    processed_samples <- c(processed_samples, sample_id)
-    message(sprintf("已处理样本 %s (%d/%d)", sample_id, length(processed_samples), total_files))
-  }
-}
+# 使用批处理函数处理样本
+process_samples_in_batches(rds_files, batch_size = 10)
 
 message("所有样本处理完成！")
 message(sprintf("共处理样本数量: %d", length(processed_samples)))

@@ -163,23 +163,35 @@ process_sample_data <- function(rds_file, region_info) {
         # 初始化长度与全局窗口数相同的向量保存拷贝数数据
         sample_cnv <- rep(NA, nrow(region_info))
 
-        # 针对每条染色体分别处理
+        # 逐个染色体读取和处理
+        seg_data <- readRDS(rds_file)
         for (chr in names(seg_data)) {
             chr_seg <- seg_data[[chr]]
             chr_windows_idx <- which(region_info$chr == chr)
             if (length(chr_windows_idx) == 0) next
 
             chr_windows <- region_info[chr_windows_idx, ]
-            for (i in 1:nrow(chr_seg)) {
-                seg <- chr_seg[i, ]
-                # 由于预处理确保 segmentation 与窗口对齐，
-                # 以 window 的起始位置位于 seg 范围内作为匹配条件
-                window_mask <- chr_windows$start >= seg$start & chr_windows$start <= seg$end
-                # 将分段 state 转换为拷贝数（state转换为数值后减1）
-                cnv_value <- as.numeric(seg$state) - 1
-                sample_cnv[chr_windows_idx[window_mask]] <- cnv_value
+
+            # 使用数据表进行更高效的操作
+            chr_seg_dt <- as.data.table(chr_seg)
+            chr_windows_dt <- as.data.table(chr_windows)
+
+            # 对每个窗口，找到对应的片段
+            for (i in seq_len(nrow(chr_windows_dt))) {
+                window_start <- chr_windows_dt$start[i]
+                matching_seg <- chr_seg_dt[window_start >= start & window_start <= end]
+                if (nrow(matching_seg) > 0) {
+                    cnv_value <- as.numeric(matching_seg$state[1]) - 1
+                    sample_cnv[chr_windows_idx[i]] <- cnv_value
+                }
             }
+
+            # 及时清理临时对象
+            rm(chr_seg, chr_windows, chr_seg_dt, chr_windows_dt)
+            gc()
         }
+        rm(seg_data)
+        gc()
 
         return(list(
             sample_id = sample_id,
@@ -205,34 +217,54 @@ main <- function() {
 
     cat("开始边处理边写入样本数据...
 ")
-    for (rds_file in rds_files) {
+    chunk_size <- 10 # 每处理10个样本强制进行一次垃圾回收
+
+    # 如果输出文件已存在，检查其中已有的样本
+    existing_samples <- character(0)
+    if (file.exists(output_rds)) {
+        result_df <- readRDS(output_rds)
+        existing_samples <- setdiff(names(result_df), c("chr", "start", "end"))
+    }
+
+    # 合并两个来源的已处理样本信息
+    processed_samples <- unique(c(processed_samples, existing_samples))
+
+    for (i in seq_along(rds_files)) {
+        rds_file <- rds_files[i]
         cat(sprintf("处理文件: %s
 ", basename(rds_file)))
         sample_result <- process_sample_data(rds_file, region_info)
 
         if (!is.null(sample_result)) {
-            # 生成当前样本数据列名
-            col_name <- paste0(sample_result$sample_id, "_cnv_data")
+            # 添加事务性写入
+            temp_rds <- paste0(output_rds, ".temp")
+            temp_progress <- paste0(progress_file, ".temp")
 
-            # 如果输出文件已存在，从文件中读入已处理结果；否则用 region_info 初始化
-            if (file.exists(output_rds)) {
-                result_df <- readRDS(output_rds)
-            } else {
-                result_df <- region_info
-            }
+            tryCatch({
+                # 保存数据到临时文件
+                result_df <- if (file.exists(output_rds)) readRDS(output_rds) else region_info
+                result_df[[sample_result$sample_id]] <- sample_result$cnv_data
+                saveRDS(result_df, temp_rds)
+                write(sample_result$sample_id, temp_progress)
 
-            # 将当前样本数据添加为新列
-            result_df[[col_name]] <- sample_result$cnv_data
+                # 如果成功，替换原文件
+                file.rename(temp_rds, output_rds)
+                file.append(progress_file, temp_progress)
+                file.remove(temp_progress)
+            }, error = function(e) {
+                # 清理临时文件
+                if (file.exists(temp_rds)) file.remove(temp_rds)
+                if (file.exists(temp_progress)) file.remove(temp_progress)
+                stop(sprintf("保存样本 %s 时发生错误: %s", sample_result$sample_id, e$message))
+            })
+        }
 
-            # 更新输出文件，每处理完一个样本就保存一次结果
-            saveRDS(result_df, output_rds)
-            cat(sprintf("样本 %s 处理完成并写入文件
-", sample_result$sample_id))
-
-            # 记录此次处理进度，便于断点续处理
-            write(sample_result$sample_id, progress_file, append = TRUE)
+        # 每处理chunk_size个样本强制进行一次垃圾回收
+        if (i %% chunk_size == 0) {
+            gc()
         }
     }
+
     cat(sprintf("所有样本处理完成，最终结果已保存至: %s
 ", output_rds))
 }

@@ -235,6 +235,19 @@ check_and_recover <- function() {
   }
 }
 
+# 添加时间估算函数
+calculate_eta <- function(completed_batches, total_batches, elapsed_time) {
+    avg_time_per_batch <- elapsed_time / completed_batches
+    remaining_batches <- total_batches - completed_batches
+    eta_seconds <- avg_time_per_batch * remaining_batches
+
+    # 转换为可读格式
+    hours <- floor(eta_seconds / 3600)
+    minutes <- floor((eta_seconds %% 3600) / 60)
+
+    return(sprintf("%dh %dm", hours, minutes))
+}
+
 # 主函数（分批次处理）
 main <- function() {
   cat("正在生成全局窗口信息...\n")
@@ -247,6 +260,8 @@ main <- function() {
   batch_size <- 10
   total_files <- length(rds_files)
   batches <- split(rds_files, ceiling(seq_along(rds_files) / batch_size))
+  total_batches <- length(batches)
+  start_time <- Sys.time()
 
   # 如果输出文件已存在，检查其中已有的样本
   existing_samples <- character(0)
@@ -261,7 +276,20 @@ main <- function() {
   # 处理每个批次
   for (batch_idx in seq_along(batches)) {
     batch <- batches[[batch_idx]]
-    cat(sprintf("处理批次 %d/%d (共 %d 个样本)\n", batch_idx, length(batches), length(batch)))
+    current_time <- Sys.time()
+    elapsed_time <- as.numeric(difftime(current_time, start_time, units="secs"))
+
+    # 计算预计剩余时间
+    if (batch_idx > 1) {
+      eta <- calculate_eta(batch_idx - 1, total_batches, elapsed_time)
+    } else {
+      eta <- "计算中..."
+    }
+
+    cat(sprintf("\n========== 批次进度 %d/%d (%.1f%%) ==========\n",
+                batch_idx, total_batches, batch_idx / total_batches * 100))
+    cat(sprintf("预计剩余时间: %s\n", eta))
+    cat(sprintf("当前批次样本数: %d\n", length(batch)))
 
     # 创建锁文件
     write(Sys.time(), lock_file)

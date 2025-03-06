@@ -54,6 +54,9 @@ error_log_file <- file.path(output_dir, "error_log.txt")
 if (!file.exists(progress_file)) file.create(progress_file)
 processed_samples <- if (file.info(progress_file)$size > 0) readLines(progress_file) else character()
 
+# 定义锁文件路径
+lock_file <- file.path(output_dir, "cnv_table.lock")
+
 # ---------------------------------------------------------------------------
 # 获取所有符合条件的 .segments.rds 文件
 rds_files <- list.files(input_dir, pattern = "[.]segments[.]rds$", full.names = TRUE)
@@ -204,69 +207,104 @@ process_sample_data <- function(rds_file, region_info) {
     })
 }
 
-# ---------------------------------------------------------------------------
-# 3. 主函数（边处理边写入）
-#    - 1) 首先生成全局窗口信息 region_info
-#    - 2) 对每个样本调用 process_sample_data 得到该样本的拷贝数据向量
-#    - 3) 每处理完一个样本，就从磁盘读入现有 rds 文件（若不存在则用 region_info 初始化），
-#         追加当前样本的列后更新写回，形成边处理边写入的机制
+# 检查和恢复函数
+check_and_recover <- function() {
+  if (file.exists(lock_file)) {
+    cat("检测到上次处理可能异常中断，进行恢复...\n")
+    # 检查临时文件是否存在
+    temp_rds <- paste0(output_rds, ".temp")
+    temp_progress <- paste0(progress_file, ".temp")
+
+    # 如果临时文件存在，尝试恢复
+    if (file.exists(temp_rds)) {
+      tryCatch({
+        # 尝试读取临时文件验证其完整性
+        temp_data <- readRDS(temp_rds)
+        # 如果成功读取，用临时文件替换原文件
+        file.rename(temp_rds, output_rds)
+        cat("成功从临时文件恢复数据\n")
+      }, error = function(e) {
+        cat("临时文件损坏，将使用原始文件继续处理\n")
+        log_error("RECOVERY", sprintf("临时文件恢复失败: %s", e$message))
+        if (file.exists(temp_rds)) file.remove(temp_rds)
+      })
+    }
+
+    # 清理锁文件
+    file.remove(lock_file)
+  }
+}
+
+# 主函数（分批次处理）
 main <- function() {
-    cat("正在生成全局窗口信息...
-")
-    region_info <- generate_region_info()
+  cat("正在生成全局窗口信息...\n")
+  region_info <- generate_region_info()
 
-    cat("开始边处理边写入样本数据...
-")
-    chunk_size <- 10 # 每处理10个样本强制进行一次垃圾回收
+  # 启动处理前检查和恢复
+  check_and_recover()
 
-    # 如果输出文件已存在，检查其中已有的样本
-    existing_samples <- character(0)
-    if (file.exists(output_rds)) {
-        result_df <- readRDS(output_rds)
-        existing_samples <- setdiff(names(result_df), c("chr", "start", "end"))
+  # 定义批次大小
+  batch_size <- 10
+  total_files <- length(rds_files)
+  batches <- split(rds_files, ceiling(seq_along(rds_files) / batch_size))
+
+  # 如果输出文件已存在，检查其中已有的样本
+  existing_samples <- character(0)
+  if (file.exists(output_rds)) {
+    result_df <- readRDS(output_rds)
+    existing_samples <- setdiff(names(result_df), c("chr", "start", "end"))
+  }
+
+  # 合并两个来源的已处理样本信息
+  processed_samples <- unique(c(processed_samples, existing_samples))
+
+  # 处理每个批次
+  for (batch_idx in seq_along(batches)) {
+    batch <- batches[[batch_idx]]
+    cat(sprintf("处理批次 %d/%d (共 %d 个样本)\n", batch_idx, length(batches), length(batch)))
+
+    # 创建锁文件
+    write(Sys.time(), lock_file)
+
+    # 处理批次中的每个样本
+    for (rds_file in batch) {
+      cat(sprintf("处理文件: %s\n", basename(rds_file)))
+      sample_result <- process_sample_data(rds_file, region_info)
+
+      if (!is.null(sample_result)) {
+        # 添加事务性写入
+        temp_rds <- paste0(output_rds, ".temp")
+        temp_progress <- paste0(progress_file, ".temp")
+
+        tryCatch({
+          # 保存数据到临时文件
+          result_df <- if (file.exists(output_rds)) readRDS(output_rds) else region_info
+          result_df[[sample_result$sample_id]] <- sample_result$cnv_data
+          saveRDS(result_df, temp_rds)
+          write(sample_result$sample_id, temp_progress)
+
+          # 如果成功，替换原文件
+          file.rename(temp_rds, output_rds)
+          file.append(progress_file, temp_progress)
+          file.remove(temp_progress)
+        }, error = function(e) {
+          # 清理临时文件
+          if (file.exists(temp_rds)) file.remove(temp_rds)
+          if (file.exists(temp_progress)) file.remove(temp_progress)
+          stop(sprintf("保存样本 %s 时发生错误: %s", sample_result$sample_id, e$message))
+        })
+      }
     }
 
-    # 合并两个来源的已处理样本信息
-    processed_samples <- unique(c(processed_samples, existing_samples))
+    # 批次处理完成，强制进行垃圾回收
+    cat(sprintf("批次 %d 处理完成，强制进行垃圾回收\n", batch_idx))
+    gc()
 
-    for (i in seq_along(rds_files)) {
-        rds_file <- rds_files[i]
-        cat(sprintf("处理文件: %s
-", basename(rds_file)))
-        sample_result <- process_sample_data(rds_file, region_info)
+    # 删除锁文件
+    file.remove(lock_file)
+  }
 
-        if (!is.null(sample_result)) {
-            # 添加事务性写入
-            temp_rds <- paste0(output_rds, ".temp")
-            temp_progress <- paste0(progress_file, ".temp")
-
-            tryCatch({
-                # 保存数据到临时文件
-                result_df <- if (file.exists(output_rds)) readRDS(output_rds) else region_info
-                result_df[[sample_result$sample_id]] <- sample_result$cnv_data
-                saveRDS(result_df, temp_rds)
-                write(sample_result$sample_id, temp_progress)
-
-                # 如果成功，替换原文件
-                file.rename(temp_rds, output_rds)
-                file.append(progress_file, temp_progress)
-                file.remove(temp_progress)
-            }, error = function(e) {
-                # 清理临时文件
-                if (file.exists(temp_rds)) file.remove(temp_rds)
-                if (file.exists(temp_progress)) file.remove(temp_progress)
-                stop(sprintf("保存样本 %s 时发生错误: %s", sample_result$sample_id, e$message))
-            })
-        }
-
-        # 每处理chunk_size个样本强制进行一次垃圾回收
-        if (i %% chunk_size == 0) {
-            gc()
-        }
-    }
-
-    cat(sprintf("所有样本处理完成，最终结果已保存至: %s
-", output_rds))
+  cat(sprintf("所有样本处理完成，最终结果已保存至: %s\n", output_rds))
 }
 
 # ---------------------------------------------------------------------------
